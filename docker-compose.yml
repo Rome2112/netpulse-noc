@@ -1,0 +1,31 @@
+version: '3.9'
+
+services:
+  noc-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: netpulse-noc
+    ports:
+      - "8000:8000"
+    environment:
+      NOC_HOST: "0.0.0.0"
+      NOC_PORT: "8000"
+      NOC_DEBUG: "false"
+      NOC_LOG_LEVEL: "INFO"
+      NOC_STORE_MAX_SIZE: "1000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - noc-network
+    volumes:
+      - ./logs:/app/logs
+
+networks:
+  noc-network:
+    driver: bridge
