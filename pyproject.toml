@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=65.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "netpulse-noc"
+version = "0.1.0"
+description = "Network Operations Center with Isomorphic Structural Theory architecture"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Rome2112", email = "67795349+Rome2112@users.noreply.github.com"}
+]
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi==0.104.1",
+    "uvicorn==0.24.0",
+    "pydantic==2.5.0",
+    "python-dateutil==2.8.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==7.4.3",
+    "pytest-asyncio==0.21.1",
+    "pytest-cov==4.1.0",
+    "black==23.11.0",
+    "flake8==6.1.0",
+    "mypy==1.7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Rome2112/netpulse-noc"
+Repository = "https://github.com/Rome2112/netpulse-noc.git"
+Issues = "https://github.com/Rome2112/netpulse-noc/issues"
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=. --cov-report=term-missing --cov-report=html"
+python_files = "test_*.py"
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
