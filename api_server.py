@@ -5,12 +5,14 @@ Provides REST API for telemetry ingestion, retrieval, and server statistics
 with full schema validation and structural governance.
 """
 
+import os
+import logging
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Dict, Any, List, Optional
-import logging
-from datetime import datetime
 
 from config import config
 from noc_server import NOCServer
@@ -26,13 +28,14 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# Add CORS middleware
+# Add CORS middleware with restricted origins for production
+allowed_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8080").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # Initialize NOC server
@@ -58,7 +61,7 @@ async def shutdown_event():
 async def health_check() -> Dict[str, Any]:
     """
     Health check endpoint.
-    
+
     Returns:
         Health status with timestamp.
     """
@@ -69,7 +72,7 @@ async def health_check() -> Dict[str, Any]:
 async def get_stats() -> Dict[str, Any]:
     """
     Get server statistics.
-    
+
     Returns:
         Server metrics including ingestion counts and store state.
     """
@@ -80,16 +83,16 @@ async def get_stats() -> Dict[str, Any]:
 async def ingest_telemetry(request: Request) -> Dict[str, Any]:
     """
     Ingest a single raw telemetry sample.
-    
+
     The raw input is projected through the StructuralAnchor onto the canonical
     schema with deterministic fallback handling.
-    
+
     Args:
         request: HTTP request body (raw telemetry dict).
-    
+
     Returns:
         Ingestion result with status, canonical packet (if accepted), or error details.
-    
+
     Raises:
         HTTPException: If request body is invalid JSON.
     """
@@ -101,13 +104,13 @@ async def ingest_telemetry(request: Request) -> Dict[str, Any]:
             status_code=400,
             detail="Invalid JSON in request body"
         )
-    
+
     if not isinstance(raw_telemetry, dict):
         raise HTTPException(
             status_code=400,
             detail="Request body must be a JSON object"
         )
-    
+
     result = noc_server.ingest(raw_telemetry)
     return result
 
@@ -116,15 +119,15 @@ async def ingest_telemetry(request: Request) -> Dict[str, Any]:
 async def ingest_batch(request: Request) -> Dict[str, Any]:
     """
     Ingest a batch of raw telemetry samples.
-    
+
     Each input is independently projected through the StructuralAnchor.
-    
+
     Args:
         request: HTTP request body (list of raw telemetry dicts).
-    
+
     Returns:
         Batch ingestion summary with per-item results.
-    
+
     Raises:
         HTTPException: If request body is invalid JSON or not a list.
     """
@@ -136,13 +139,13 @@ async def ingest_batch(request: Request) -> Dict[str, Any]:
             status_code=400,
             detail="Invalid JSON in request body"
         )
-    
+
     if not isinstance(raw_telemetries, list):
         raise HTTPException(
             status_code=400,
             detail="Request body must be a JSON array"
         )
-    
+
     result = noc_server.ingest_batch(raw_telemetries)
     return result
 
@@ -151,10 +154,10 @@ async def ingest_batch(request: Request) -> Dict[str, Any]:
 async def get_telemetry(node_id: Optional[str] = None) -> Dict[str, Any]:
     """
     Retrieve current telemetry packets.
-    
+
     Args:
         node_id: Optional filter by specific node ID.
-    
+
     Returns:
         Dictionary with telemetry packets and metadata.
     """
@@ -165,10 +168,10 @@ async def get_telemetry(node_id: Optional[str] = None) -> Dict[str, Any]:
 async def get_node_telemetry(node_id: str) -> Dict[str, Any]:
     """
     Retrieve telemetry for a specific node.
-    
+
     Args:
         node_id: Node identifier.
-    
+
     Returns:
         Dictionary with telemetry packets for the node.
     """
@@ -179,7 +182,7 @@ async def get_node_telemetry(node_id: str) -> Dict[str, Any]:
 async def get_info() -> Dict[str, Any]:
     """
     Get server information.
-    
+
     Returns:
         Server metadata including version and architecture details.
     """
