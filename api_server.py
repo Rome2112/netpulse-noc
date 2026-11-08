@@ -10,7 +10,7 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -42,6 +42,23 @@ app.add_middleware(
 noc_server = NOCServer(store_size=config.TELEMETRY_STORE_MAX_SIZE)
 
 logger.info("NOC API Server initialized with structural anchor engine")
+
+
+def _paginate_telemetry(
+    response: Dict[str, Any], limit: Optional[int], offset: int
+) -> Dict[str, Any]:
+    """Apply pagination to a telemetry response while retaining total count."""
+    packets = response.get("packets", [])
+    total_count = len(packets)
+    page = packets[offset:] if limit is None else packets[offset : offset + limit]
+    return {
+        **response,
+        "count": len(page),
+        "total_count": total_count,
+        "limit": limit,
+        "offset": offset,
+        "packets": page,
+    }
 
 
 @app.on_event("startup")
@@ -151,31 +168,45 @@ async def ingest_batch(request: Request) -> Dict[str, Any]:
 
 
 @app.get("/telemetry", tags=["queries"])
-async def get_telemetry(node_id: Optional[str] = None) -> Dict[str, Any]:
+async def get_telemetry(
+    node_id: Optional[str] = None,
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+) -> Dict[str, Any]:
     """
-    Retrieve current telemetry packets.
+    Retrieve telemetry packets with optional node filtering and pagination.
 
     Args:
         node_id: Optional filter by specific node ID.
+        limit: Maximum number of packets to return (1-1000).
+        offset: Number of matching packets to skip.
 
     Returns:
-        Dictionary with telemetry packets and metadata.
+        A page of packets with page size, total match count, limit, and offset.
     """
-    return noc_server.get_telemetry(node_id)
+    result = noc_server.get_telemetry(node_id)
+    return _paginate_telemetry(result, limit, offset)
 
 
 @app.get("/telemetry/{node_id}", tags=["queries"])
-async def get_node_telemetry(node_id: str) -> Dict[str, Any]:
+async def get_node_telemetry(
+    node_id: str,
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+) -> Dict[str, Any]:
     """
-    Retrieve telemetry for a specific node.
+    Retrieve paginated telemetry for a specific node.
 
     Args:
         node_id: Node identifier.
+        limit: Maximum number of packets to return (1-1000).
+        offset: Number of matching packets to skip.
 
     Returns:
-        Dictionary with telemetry packets for the node.
+        A page of packets with page size, total match count, limit, and offset.
     """
-    return noc_server.get_telemetry(node_id)
+    result = noc_server.get_telemetry(node_id)
+    return _paginate_telemetry(result, limit, offset)
 
 
 @app.get("/info", tags=["metadata"])
@@ -218,3 +249,4 @@ if __name__ == "__main__":
         port=config.PORT,
         log_level=config.LOG_LEVEL.lower(),
     )
+
